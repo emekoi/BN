@@ -124,19 +124,19 @@ proc `mod`*(x: BN, y: BN): BN {.raises: [].} =
     result = x % y
 
 #All the comparison functions. ==, !-, <, <=, >, and >=.
-proc mpz_tCompare(x: ptr mpz_t, y: ptr mpz_t): int {.importc: "mp_int_compare".}
+proc mpz_tCompare(x: mpz_t, y: mpz_t): cint {.importc: "mp_int_compare".}
 proc `==`*(x: BN, y: BN): bool {.raises: [].} =
-    result = mpz_tCompare(addr x.number, addr y.number) == 0
+    result = mpz_tCompare(x.number, y.number) == 0
 proc `!=`*(x: BN, y: BN): bool {.raises: [].} =
-    result = mpz_tCompare(addr x.number, addr y.number) != 0
+    result = mpz_tCompare(x.number, y.number) != 0
 proc `<`*(x: BN, y: BN): bool {.raises: [].} =
-    result = mpz_tCompare(addr x.number, addr y.number) == -1
+    result = mpz_tCompare(x.number, y.number) < 0
 proc `<=`*(x: BN, y: BN): bool {.raises: [].} =
-    result = mpz_tCompare(addr x.number, addr y.number) != 1
+    result = mpz_tCompare(x.number, y.number) < 1
 proc `>`*(x: BN, y: BN): bool {.raises: [].} =
-    result = mpz_tCompare(addr x.number, addr y.number) == 1
+    result = mpz_tCompare(x.number, y.number) > 0
 proc `>=`*(x: BN, y: BN): bool {.raises: [].} =
-    result = mpz_tCompare(addr x.number, addr y.number) != -1
+    result = mpz_tCompare(x.number, y.number) > -1
 
 #To int function.
 proc toInt*(x: BN): int {.raises: [ValueError, OverflowError].} =
