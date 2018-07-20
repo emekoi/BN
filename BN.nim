@@ -137,3 +137,10 @@ proc `>`*(x: BN, y: BN): bool {.raises: [].} =
     result = mpz_tCompare(addr x.number, addr y.number) == 1
 proc `>=`*(x: BN, y: BN): bool {.raises: [].} =
     result = mpz_tCompare(addr x.number, addr y.number) != -1
+
+#To int function.
+proc toInt*(x: BN): int {.raises: [ValueError, OverflowError].} =
+    if x > newBN(int.high):
+        raise newException(ValueError, "BN is too big to be converted to an int.")
+
+    result = parseInt($x)
