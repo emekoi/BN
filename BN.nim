@@ -32,12 +32,7 @@ type
 #C 'constructor'.
 proc mpz_tInit(x: ptr mpz_t, base: cint, value: cstring) {.importc: "mp_int_read_string".}
 #Nim constructors.
-proc newBN*(): BN {.raises: [].} =
-    result = BN()
-
-    var default: string = "0"
-    mpz_tInit(addr result.number, 10, addr default[0])
-proc newBN*(numberArg: string): BN {.raises: [].} =
+proc newBN*(numberArg: string = "0"): BN {.raises: [].} =
     result = BN()
 
     var number: string = numberArg
