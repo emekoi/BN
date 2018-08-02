@@ -58,12 +58,13 @@ proc mpz_tDiv(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t, r: ptr mpz_t): mp_result
 # Modulus functions.
 proc mpz_tMod(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t): mp_result {.importc: "mp_int_mod".}
 # All the comparison functions. ==, !-, <, <=, >, and >=.
-proc mpz_tCompare(x: mpz_t, y: mpz_t): cint {.importc: "mp_int_compare".}
+proc mpz_tCompare(x: ptr mpz_t, y: ptr mpz_t): cint {.importc: "mp_int_compare".}
 {.pop.}
 
 # Nim destructor.
 proc destroyBN(z: BN) {.raises: [].} =
-  mpz_tFree(z.number.addr)
+  if not z.isNil:
+    mpz_tFree(z.number.addr)
 
 # Nim constructors.
 proc newBN*(numberArg: string = "0"): BN {.raises: [].} =
@@ -146,22 +147,22 @@ proc `mod`*(x: BN, y: BN): BN {.raises: [].} =
   x % y
 
 proc `==`*(x: BN, y: BN): bool {.raises: [].} =
-  mpz_tCompare(x.number, y.number) == 0
+  mpz_tCompare(addr x.number, addr y.number) == 0
 
 proc `!=`*(x: BN, y: BN): bool {.raises: [].} =
-  mpz_tCompare(x.number, y.number) != 0
+  mpz_tCompare(addr x.number, addr y.number) != 0
 
 proc `<`*(x: BN, y: BN): bool {.raises: [].} =
-  mpz_tCompare(x.number, y.number) < 0
+  mpz_tCompare(addr x.number, addr y.number) < 0
 
 proc `<=`*(x: BN, y: BN): bool {.raises: [].} =
-  mpz_tCompare(x.number, y.number) < 1
+  mpz_tCompare(addr x.number, addr y.number) < 1
 
 proc `>`*(x: BN, y: BN): bool {.raises: [].} =
-  mpz_tCompare(x.number, y.number) > 0
+  mpz_tCompare(addr x.number, addr y.number) > 0
 
 proc `>=`*(x: BN, y: BN): bool {.raises: [].} =
-  mpz_tCompare(x.number, y.number) > -1
+  mpz_tCompare(addr x.number, addr y.number) > -1
 
 # To int function.
 proc toInt*(x: BN): int {.raises: [ValueError, OverflowError].} =
