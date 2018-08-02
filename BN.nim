@@ -16,6 +16,15 @@ type
     used: cuint
     sign: cuchar
 
+  mp_result = enum
+    MP_BADARG = -6 # invalid null argument
+    MP_TRUNC  = -5 # output truncated
+    MP_UNDEF  = -4 # result undefined
+    MP_RANGE  = -3 # argument out of range
+    MP_MEMORY = -2 # out of memory
+    MP_TRUE   = -1 # boolean true
+    MP_FALSE  = 0  # boolean false
+
   # Wrapper object.
   BN* = ref object of RootObj
     number: mpz_t
@@ -33,35 +42,50 @@ type
 # C 'destructor'.
 proc mpz_tFree(z: ptr mpz_t) {.importc: "mp_int_free".}
 # C 'constructor'.
-proc mpz_tInit(x: ptr mpz_t, base: cint, value: cstring) {.importc: "mp_int_read_string".}
+proc mpz_tInit(x: ptr mpz_t, base: cint, value: cstring): mp_result {.importc: "mp_int_read_string".}
 # Stringify function.
 proc mpz_tStringify(x: ptr mpz_t): cstring {.importc: "printMPZ_T".}
 # Addition  function.
-proc mpz_tAdd(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t) {.importc: "mp_int_add".}
+proc mpz_tAdd(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t): mp_result {.importc: "mp_int_add".}
 # Subtraction functions.
-proc mpz_tSub(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t) {.importc: "mp_int_sub".}
+proc mpz_tSub(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t): mp_result {.importc: "mp_int_sub".}
 # Multiplication functions.
-proc mpz_tMul(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t) {.importc: "mp_int_mul".}
+proc mpz_tMul(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t): mp_result {.importc: "mp_int_mul".}
 # Exponent/power functions.
-proc mpz_tPow(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t) {.importc: "mp_int_expt_full".}
+proc mpz_tPow(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t): mp_result {.importc: "mp_int_expt_full".}
 # Division functions.
-proc mpz_tDiv(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t, r: ptr mpz_t) {.importc: "mp_int_div".}
+proc mpz_tDiv(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t, r: ptr mpz_t): mp_result {.importc: "mp_int_div".}
 # Modulus functions.
-proc mpz_tMod(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t) {.importc: "mp_int_mod".}
+proc mpz_tMod(x: ptr mpz_t, y: ptr mpz_t, z: ptr mpz_t): mp_result {.importc: "mp_int_mod".}
 # All the comparison functions. ==, !-, <, <=, >, and >=.
 proc mpz_tCompare(x: mpz_t, y: mpz_t): cint {.importc: "mp_int_compare".}
+# Get errors  
+proc mpz_tErrorString(res: mp_result): cstring {.importc: "mp_error_string".}
 {.pop.}
+
+template raiseResult(res: mp_result): untyped = 
+  case res:
+    of MP_FALSE, MP_TRUE, MP_TRUNC: discard
+    of MP_BADARG:
+      raise newException(ValueError, $mpz_tErrorString(res))
+    of MP_UNDEF:
+      raise newException(DivByZeroError, $mpz_tErrorString(res))
+    of MP_RANGE:
+      raise newException(RangeError, $mpz_tErrorString(res))
+    of MP_MEMORY:
+      raise newException(OutOfMemError, $mpz_tErrorString(res))
+
 
 # Nim destructor.
 proc destroyBN(z: BN) {.raises: [].} =
   mpz_tFree(z.number.addr)
 
 # Nim constructors.
-proc newBN*(numberArg: string = "0"): BN {.raises: [].} =
+proc newBN*(numberArg: string = "0"): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result.new(destroyBN)
-  mpz_tInit(addr result.number, 10, unsafeAddr numberArg[0])
+  raiseResult mpz_tInit(addr result.number, 10, unsafeAddr numberArg[0])
 
-proc newBN*(number: SomeInteger): BN {.raises: [].} =
+proc newBN*(number: SomeInteger): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN($number)
 
 # Define some basic numbers.
@@ -77,63 +101,63 @@ var BNNums*: BNNumsType = BNNumsType(
 proc `$`*(x: BN): string {.raises: [].} =
   result = $mpz_tStringify(addr x.number)
 
-proc `+`*(x: BN, y: BN): BN {.raises: [].} =
+proc `+`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN()
-  mpz_tAdd(addr x.number, addr y.number, addr result.number)
+  raiseResult mpz_tAdd(addr x.number, addr y.number, addr result.number)
 
 # += operator.
-proc `+=`*(x: BN, y: BN) {.raises: [].} =
+proc `+=`*(x: BN, y: BN) {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x.number = (x + y).number
 
 # Nim uses inc/dec instead of ++ and --. This is when BNNums is useful as hell.
-proc inc*(x: BN) {.raises: [].} =
+proc inc*(x: BN) {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x += BNNums.ONE
 
-proc `-`*(x: BN, y: BN): BN {.raises: [].} =
+proc `-`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN()
-  mpz_tSub(addr x.number, addr y.number, addr result.number)
+  raiseResult mpz_tSub(addr x.number, addr y.number, addr result.number)
 
-proc `-=`*(x: BN, y: BN) {.raises: [].} =
+proc `-=`*(x: BN, y: BN) {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x.number = (x - y).number
 
-proc dec*(x: BN) {.raises: [].} =
+proc dec*(x: BN) {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x -= BNNums.ONE
 
-proc `*`*(x: BN, y: BN): BN {.raises: [].} =
+proc `*`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN()
-  mpz_tMul(addr x.number, addr y.number, addr result.number)
+  raiseResult mpz_tMul(addr x.number, addr y.number, addr result.number)
 
-proc `*=`*(x: BN, y: BN) {.raises: [].} =
+proc `*=`*(x: BN, y: BN) {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x.number = (x * y).number
 
-proc `^`*(x: BN, y: BN): BN {.raises: [].} =
+proc `^`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN()
-  mpz_tPow(addr x.number, addr y.number, addr result.number)
+  raiseResult mpz_tPow(addr x.number, addr y.number, addr result.number)
 
-proc `pow`*(x: BN, y: BN): BN {.raises: [].} =
+proc `pow`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x ^ y
 
-proc `/`*(x: BN, y: BN): BN {.raises: [].} =
+proc `/`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN()
   # imath also returns the remainder. We don't use it, hence the junk `addr newBN().number`.
-  mpz_tDiv(addr x.number, addr y.number, addr result.number, addr newBN().number)
+  raiseResult mpz_tDiv(addr x.number, addr y.number, addr result.number, addr newBN().number)
 
-proc `div`*(x: BN, y: BN): BN {.raises: [].} =
+proc `div`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x / y
 
-proc `//`*(x: BN, y: BN): tuple[result: BN, remainder: BN] {.raises: [].} =
+proc `//`*(x: BN, y: BN): tuple[result: BN, remainder: BN] {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result.result = newBN()
   result.remainder = newBN()
-  mpz_tDiv(addr x.number, addr y.number, addr result.result.number, addr result.remainder.number)
+  raiseResult mpz_tDiv(addr x.number, addr y.number, addr result.result.number, addr result.remainder.number)
 
-proc `divWRemainder`*(x: BN, y: BN): tuple[result: BN, remainder: BN] {.raises: [].} =
+proc `divWRemainder`*(x: BN, y: BN): tuple[result: BN, remainder: BN] {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x // y
 
-proc `%`*(x: BN, y: BN): BN {.raises: [].} =
+proc `%`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   result = newBN()
-  mpz_tMod(addr x.number, addr y.number, addr result.number)
+  raiseResult mpz_tMod(addr x.number, addr y.number, addr result.number)
 
-proc `mod`*(x: BN, y: BN): BN {.raises: [].} =
+proc `mod`*(x: BN, y: BN): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
   x % y
 
 proc `==`*(x: BN, y: BN): bool {.raises: [].} =
@@ -155,7 +179,7 @@ proc `>=`*(x: BN, y: BN): bool {.raises: [].} =
   mpz_tCompare(x.number, y.number) > -1
 
 # To int function.
-proc toInt*(x: BN): int {.raises: [ValueError, OverflowError].} =
+proc toInt*(x: BN): int {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError, OverflowError].} =
   if x > newBN(int.high):
     raise newException(ValueError, "BN is too big to be converted to an int.")
   parseInt($x)
