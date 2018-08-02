@@ -40,7 +40,7 @@ type
 
 {.push cdecl.}
 # C 'destructor'.
-proc mpz_tFree(z: ptr mpz_t) {.importc: "mp_int_free".}
+proc mpz_tClear(z: ptr mpz_t) {.importc: "mp_int_clear".}
 # C 'constructor'.
 proc mpz_tInit(x: ptr mpz_t, base: cint, value: cstring): mp_result {.importc: "mp_int_read_string".}
 # Stringify function.
@@ -78,7 +78,7 @@ template raiseResult(res: mp_result): untyped =
 # Nim destructor.
 proc destroyBN(z: BN) {.raises: [].} =
   if not z.isNil:
-    mpz_tFree(z.number.addr)
+    mpz_tClear(z.number.addr)
 
 # Nim constructors.
 proc newBN*(numberArg: string = "0"): BN {.raises: [ValueError, DivByZeroError, RangeError, OutOfMemError].} =
